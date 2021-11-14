@@ -115,10 +115,8 @@ variable "template" {
   default = "ubuntu-20.04-amd64"
 }
 
-
-
 locals {
-  version        = timestamp()
+  version        = formatdate("YYYY-MM-DD-hhmm", timestamp())
   http_directory = "${path.root}/http"
 }
 
