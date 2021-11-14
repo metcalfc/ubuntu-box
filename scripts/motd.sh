@@ -1,21 +1,21 @@
 #!/bin/sh -eux
 
-bento='
-This system is built by the Bento project by Chef Software
-More information can be found at https://github.com/chef/bento'
+gitpod='
+This system is built by Gitpod using templates derived from the Bento project by Chef Software.
+'
 
 if [ -d /etc/update-motd.d ]; then
-    MOTD_CONFIG='/etc/update-motd.d/99-bento'
+    MOTD_CONFIG='/etc/update-motd.d/99-gitpod'
 
-    cat >> "$MOTD_CONFIG" <<BENTO
+    cat >> "$MOTD_CONFIG" <<GITPOD
 #!/bin/sh
 
 cat <<'EOF'
-$bento
+$gitpod
 EOF
-BENTO
+GITPOD
 
     chmod 0755 "$MOTD_CONFIG"
 else
-    echo "$bento" >> /etc/motd
+    echo "$gitpod" >> /etc/motd
 fi
