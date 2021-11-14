@@ -328,6 +328,7 @@ build {
   }
 
   post-processor "vagrant" {
-    output = "${var.build_directory}/${var.box_basename}.${local.version}.box"
+    keep_input_artifact = true
+    output              = "${var.build_directory}/${var.box_basename}.${local.version}.box"
   }
 }
