@@ -22,7 +22,7 @@ variable "box_basename" {
 
 variable "build_directory" {
   type    = string
-  default = "../builds"
+  default = "./builds"
 }
 
 variable "cpus" {
@@ -245,9 +245,6 @@ source "vmware-iso" "vmware" {
   vmx_remove_ethernet_interfaces = true
 }
 
-# a build block invokes sources and runs provisioning steps on them. The
-# documentation for build blocks can be found here:
-# https://www.packer.io/docs/templates/hcl_templates/blocks/build
 build {
   sources = ["source.hyperv-iso.hyperv", "source.parallels-iso.parallels", "source.qemu.qemu", "source.virtualbox-iso.virtualbox", "source.vmware-iso.vmware"]
 
