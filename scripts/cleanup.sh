@@ -74,6 +74,7 @@ rm -rf /usr/share/doc/linux-firmware/*
 echo "autoremoving packages and cleaning apt data"
 apt-get -y autoremove;
 apt-get -y clean;
+apt-get autoclean;
 
 echo "remove /usr/share/doc/"
 rm -rf /usr/share/doc/*
@@ -92,6 +93,9 @@ rm -rf /tmp/* /var/tmp/*
 
 echo "force a new random seed to be generated"
 rm -f /var/lib/systemd/random-seed
+
+echo "cleanup journal logs"
+rm -rf /var/log/journal/*
 
 echo "clear the history so our install isn't there"
 rm -f /root/.wget-hsts

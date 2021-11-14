@@ -27,7 +27,7 @@ variable "build_directory" {
 
 variable "cpus" {
   type    = string
-  default = "2"
+  default = "4"
 }
 
 variable "disk_size" {
@@ -60,11 +60,6 @@ variable "https_proxy" {
   default = "${env("https_proxy")}"
 }
 
-variable "hyperv_generation" {
-  type    = string
-  default = "2"
-}
-
 variable "hyperv_switch" {
   type    = string
   default = "Default"
@@ -82,7 +77,7 @@ variable "iso_name" {
 
 variable "memory" {
   type    = string
-  default = "1024"
+  default = "16384"
 }
 
 variable "mirror" {
@@ -123,8 +118,8 @@ variable "template" {
 
 
 locals {
-  version = timestamp()
-  http_directory  = "${path.root}/http"
+  version        = timestamp()
+  http_directory = "${path.root}/http"
 }
 # source blocks are generated from your builders; a source can be referenced in
 # build blocks. A build block runs provisioner and post-processors on a
@@ -137,7 +132,11 @@ source "hyperv-iso" "hyperv" {
   cpus               = "${var.cpus}"
   disk_size          = "${var.disk_size}"
   enable_secure_boot = false
-  generation         = "${var.hyperv_generation}"
+  enable_virtualization_extensions = true
+  # These next two are required for nested virtualization
+  enable_dynamic_memory = false
+  enable_mac_spoofing = true
+  generation         = 2
   http_directory     = "${local.http_directory}"
   iso_checksum       = "${var.iso_checksum}"
   iso_url            = "${var.mirror}/${var.mirror_directory}/${var.iso_name}"
@@ -207,6 +206,7 @@ source "virtualbox-iso" "virtualbox" {
   iso_checksum            = "${var.iso_checksum}"
   iso_url                 = "${var.mirror}/${var.mirror_directory}/${var.iso_name}"
   memory                  = "${var.memory}"
+  nested_virt             = "true"
   output_directory        = "${var.build_directory}/packer-${var.template}-virtualbox"
   shutdown_command        = "echo 'vagrant' | sudo -S shutdown -P now"
   ssh_password            = "vagrant"
@@ -239,6 +239,8 @@ source "vmware-iso" "vmware" {
   vmx_data = {
     "cpuid.coresPerSocket"    = "1"
     "ethernet0.pciSlotNumber" = "32"
+    "featMask.vm.hv.capable"  = "Min:1"
+    "vhv.enable"              = "true"
   }
   vmx_remove_ethernet_interfaces = true
 }
@@ -253,18 +255,84 @@ build {
     environment_vars  = ["HOME_DIR=/home/vagrant", "http_proxy=${var.http_proxy}", "https_proxy=${var.https_proxy}", "no_proxy=${var.no_proxy}"]
     execute_command   = "echo 'vagrant' | {{ .Vars }} sudo -S -E sh -eux '{{ .Path }}'"
     expect_disconnect = true
-    scripts           = ["${path.root}/scripts/update.sh",
-                               "${path.root}/scripts/motd.sh",
-                               "${path.root}/scripts/sshd.sh",
-                               "${path.root}/scripts/networking.sh",
-                               "${path.root}/scripts/sudoers.sh",
-                               "${path.root}/scripts/vagrant.sh",
-                               "${path.root}/scripts/virtualbox.sh",
-                               "${path.root}/scripts/vmware.sh",
-                               "${path.root}/scripts/parallels.sh",
-                               "${path.root}/scripts/hyperv.sh",
-                               "${path.root}/scripts/cleanup.sh",
-                               "${path.root}/scripts/minimize.sh"]
+    scripts = ["${path.root}/scripts/update.sh",
+      "${path.root}/scripts/motd.sh",
+      "${path.root}/scripts/sshd.sh",
+      "${path.root}/scripts/networking.sh",
+      "${path.root}/scripts/sudoers.sh",
+      "${path.root}/scripts/vagrant.sh",
+      "${path.root}/scripts/virtualbox.sh",
+      "${path.root}/scripts/vmware.sh",
+      "${path.root}/scripts/parallels.sh",
+      "${path.root}/scripts/hyperv.sh",
+      "${path.root}/scripts/cleanup.sh",
+      "${path.root}/scripts/minimize.sh"]
+  }
+
+  provisioner "file" {
+    source      = "${path.root}/gitpod/limits.conf"
+    destination = "/tmp/limits.conf"
+  }
+
+  provisioner "file" {
+    source      = "${path.root}/gitpod/containerd.toml"
+    destination = "/tmp/containerd.toml"
+  }
+
+  provisioner "file" {
+    source      = "${path.root}/gitpod/setup.sh"
+    destination = "/tmp/setup.sh"
+  }
+
+  provisioner "file" {
+    source      = "${path.root}/gitpod/kubelet-config.json"
+    destination = "/tmp/kubelet-config.json"
+  }
+
+  provisioner "file" {
+    source      = "${path.root}/gitpod/sysctl/11-network-security.conf"
+    destination = "/tmp/11-network-security.conf"
+  }
+
+  provisioner "file" {
+    source      = "${path.root}/gitpod/sysctl/89-gce.conf"
+    destination = "/tmp/89-gce.conf"
+  }
+
+  provisioner "file" {
+    source      = "${path.root}/gitpod/sysctl/99-defaults.conf"
+    destination = "/tmp/99-defaults.conf"
+  }
+
+  provisioner "shell" {
+    inline = [
+      "chmod +x /tmp/setup.sh",
+      "sudo bash -c /tmp/setup.sh",
+      "sleep 10",
+      "sudo reboot"
+    ]
+    expect_disconnect = true
+  }
+
+  # Compile shiftfs after rebooting the VM with the new kernel
+  provisioner "shell" {
+    inline = [
+      "git clone -b k5.13 https://github.com/toby63/shiftfs-dkms.git /tmp/shiftfs-k513",
+      "cd /tmp/shiftfs-k513; sudo make -f Makefile.dkms",
+      "sudo modinfo shiftfs"
+    ]
+  }
+
+  provisioner "shell" {
+    environment_vars  = ["HOME_DIR=/home/vagrant", "http_proxy=${var.http_proxy}", "https_proxy=${var.https_proxy}", "no_proxy=${var.no_proxy}"]
+    execute_command   = "echo 'vagrant' | {{ .Vars }} sudo -S -E sh -eux '{{ .Path }}'"
+    expect_disconnect = true
+    scripts = ["${path.root}/scripts/virtualbox.sh",
+      "${path.root}/scripts/vmware.sh",
+      "${path.root}/scripts/parallels.sh",
+      "${path.root}/scripts/hyperv.sh",
+     "${path.root}/scripts/cleanup.sh",
+     "${path.root}/scripts/minimize.sh"]
   }
 
   post-processor "vagrant" {

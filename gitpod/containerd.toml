@@ -1,0 +1,43 @@
+version = 2
+
+# debug configuration
+[debug]
+  address = "/run/containerd/debug.sock"
+  # socket uid
+  uid = 0
+  # socket gid
+  gid = 0
+  # debug level
+  level = "info"
+
+# metrics configuration
+#[metrics]
+#  # tcp address!
+#  address = "127.0.0.1:1234"
+
+[plugins]
+  [plugins."io.containerd.grpc.v1.cri"]
+    max_concurrent_downloads = 20
+    sandbox_image = "k8s.gcr.io/pause:3.6"
+
+    [plugins."io.containerd.grpc.v1.cri".containerd]
+      default_runtime_name = "runc"
+
+      snapshotter = "stargz"
+      disable_snapshot_annotations = false
+
+      [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
+
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+          runtime_type = "io.containerd.runc.v2"
+
+          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+            #SystemdCgroup = true
+
+    [plugins."io.containerd.grpc.v1.cri".registry]
+      config_path = "/etc/containerd/certs.d"
+
+[proxy_plugins]
+  [proxy_plugins.stargz]
+    type = "snapshot"
+    address = "/run/containerd-stargz-grpc/containerd-stargz-grpc.sock"
