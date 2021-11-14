@@ -121,29 +121,29 @@ locals {
 }
 
 source "hyperv-iso" "hyperv" {
-  boot_command       = [" <wait>", " <wait>", " <wait>", " <wait>", " <wait>", "<esc><wait>", "<f6><wait>", "<esc><wait>", "<bs><bs><bs><bs><wait>", " autoinstall<wait5>", " ds=nocloud-net<wait5>", ";s=http://<wait5>{{ .HTTPIP }}<wait5>:{{ .HTTPPort }}/<wait5>", " ---<wait5>", "<enter><wait5>"]
-  boot_wait          = "5s"
-  communicator       = "ssh"
-  cpus               = "${var.cpus}"
-  disk_size          = "${var.disk_size}"
-  enable_secure_boot = false
+  boot_command                     = [" <wait>", " <wait>", " <wait>", " <wait>", " <wait>", "<esc><wait>", "<f6><wait>", "<esc><wait>", "<bs><bs><bs><bs><wait>", " autoinstall<wait5>", " ds=nocloud-net<wait5>", ";s=http://<wait5>{{ .HTTPIP }}<wait5>:{{ .HTTPPort }}/<wait5>", " ---<wait5>", "<enter><wait5>"]
+  boot_wait                        = "5s"
+  communicator                     = "ssh"
+  cpus                             = "${var.cpus}"
+  disk_size                        = "${var.disk_size}"
+  enable_secure_boot               = false
   enable_virtualization_extensions = true
   # These next two are required for nested virtualization
   enable_dynamic_memory = false
-  enable_mac_spoofing = true
-  generation         = 2
-  http_directory     = "${local.http_directory}"
-  iso_checksum       = "${var.iso_checksum}"
-  iso_url            = "${var.mirror}/${var.mirror_directory}/${var.iso_name}"
-  memory             = "${var.memory}"
-  output_directory   = "${var.build_directory}/packer-${var.template}-hyperv"
-  shutdown_command   = "echo 'vagrant' | sudo -S shutdown -P now"
-  ssh_password       = "vagrant"
-  ssh_port           = 22
-  ssh_timeout        = "10000s"
-  ssh_username       = "vagrant"
-  switch_name        = "${var.hyperv_switch}"
-  vm_name            = "${var.template}"
+  enable_mac_spoofing   = true
+  generation            = 2
+  http_directory        = "${local.http_directory}"
+  iso_checksum          = "${var.iso_checksum}"
+  iso_url               = "${var.mirror}/${var.mirror_directory}/${var.iso_name}"
+  memory                = "${var.memory}"
+  output_directory      = "${var.build_directory}/packer-${var.template}-hyperv"
+  shutdown_command      = "echo 'vagrant' | sudo -S shutdown -P now"
+  ssh_password          = "vagrant"
+  ssh_port              = 22
+  ssh_timeout           = "10000s"
+  ssh_username          = "vagrant"
+  switch_name           = "${var.hyperv_switch}"
+  vm_name               = "${var.template}"
 }
 
 source "parallels-iso" "parallels" {
@@ -252,13 +252,7 @@ build {
       "${path.root}/scripts/sshd.sh",
       "${path.root}/scripts/networking.sh",
       "${path.root}/scripts/sudoers.sh",
-      "${path.root}/scripts/vagrant.sh",
-      "${path.root}/scripts/virtualbox.sh",
-      "${path.root}/scripts/vmware.sh",
-      "${path.root}/scripts/parallels.sh",
-      "${path.root}/scripts/hyperv.sh",
-      "${path.root}/scripts/cleanup.sh",
-      "${path.root}/scripts/minimize.sh"]
+    "${path.root}/scripts/vagrant.sh"]
   }
 
   provisioner "file" {
@@ -323,8 +317,8 @@ build {
       "${path.root}/scripts/vmware.sh",
       "${path.root}/scripts/parallels.sh",
       "${path.root}/scripts/hyperv.sh",
-     "${path.root}/scripts/cleanup.sh",
-     "${path.root}/scripts/minimize.sh"]
+      "${path.root}/scripts/cleanup.sh",
+    "${path.root}/scripts/minimize.sh"]
   }
 
   post-processor "vagrant" {
