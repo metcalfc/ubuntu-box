@@ -2,6 +2,11 @@
 
 set -eo pipefail
 
+GITPOD_VERSION="main.1838"
+# Install k3s
+export INSTALL_K3S_SKIP_DOWNLOAD=true
+export NODE_IP="$(hostname -I | cut -d ' ' -f2)"
+
 cd /root
 
 # Install smallstep to manage a self signed certificate authority
@@ -13,9 +18,7 @@ sudo dpkg -i /tmp/step-ca_0.17.4_amd64.deb
 
 rm -f /tmp/step-*deb
 
-# Install k3s
-export INSTALL_K3S_SKIP_DOWNLOAD=true
-export NODE_IP="$(hostname -I | cut -d ' ' -f1)"
+
 
 # shellcheck disable=SC2154
 /usr/local/bin/install-k3s.sh \
@@ -135,3 +138,84 @@ helm upgrade --install cert-manager jetstack/cert-manager \
     --namespace kube-system \
     --wait \
     --set installCRDs=true
+
+nerdctl run --rm -v /usr/local/bin:/tmp/copy \
+  --entrypoint /bin/sh eu.gcr.io/gitpod-core-dev/build/installer:$GITPOD_VERSION \
+  -c "cp /app/installer /tmp/copy/gitpod-installer"
+
+wget https://github.com/coredns/coredns/releases/download/v1.8.6/coredns_1.8.6_linux_amd64.tgz
+wget https://github.com/coredns/coredns/releases/download/v1.8.6/coredns_1.8.6_linux_amd64.tgz.sha256
+
+if cat coredns_1.8.6_linux_amd64.tgz.sha256  | sha256sum --check; then
+  tar zxvf coredns_1.8.6_linux_amd64.tgz -C /usr/bin/
+  chmod +x /usr/bin/coredns
+  rm -f coredns_1.8.6_linux_amd64.tgz*
+else
+  exit 1
+fi
+
+useradd -d /var/lib/coredns -m coredns
+
+# Setup the resolver
+apt install resolvconf
+echo "dns=default" | sudo tee /etc/NetworkManager/NetworkManager.conf
+echo "nameserver 127.0.0.1" /etc/resolvconf/resolv.conf.d/head
+
+wget https://raw.githubusercontent.com/coredns/deployment/master/systemd/coredns-tmpfiles.conf -O  /usr/lib/tmpfiles.d/coredns-tmpfiles.conf
+wget https://raw.githubusercontent.com/coredns/deployment/master/systemd/coredns-sysusers.conf -O  /usr/lib/sysusers.d/coredns-sysusers.conf
+wget https://raw.githubusercontent.com/coredns/deployment/master/systemd/coredns.service -O /etc/systemd/system/coredns.service
+
+mkdir -p /etc/coredns
+
+cat << EOF > /etc/coredns/Corefile
+. {
+    forward . 127.0.0.1:5301 127.0.0.1:5302
+}
+
+.:5301 {
+    forward . tls://9.9.9.9 tls://149.112.112.112 {
+        tls_servername dns.quad9.net
+        health_check 5s
+    }
+    cache
+    errors
+}
+
+.:5302 {
+    forward . tls://1.1.1.1 tls://1.0.0.1 {
+       tls_servername cloudflare-dns.com
+       health_check 5s
+    }
+    cache
+    errors
+}
+
+home.vm {
+    file /etc/coredns/db.home.vm
+    errors
+    log
+}
+EOF
+
+cat << EOF > /etc/coredns/db.home.vm
+\$ORIGIN home.vm.
+\$TTL 86400
+home.vm. IN SOA ns.home.vm. mail.home.vm. (
+  2021071402; serial
+  43200
+  180
+  1209600
+  10800
+)
+home.vm.	NS	ns.home.vm.
+ns.home.vm.	A	${NODE_IP}
+*	3600	A	${NODE_IP}
+EOF
+
+chown coredns:coredns /etc/coredns/*
+
+# Get rid of the old DNS
+systemctl stop systemd-resolved && sudo systemctl disable systemd-resolved
+
+# New DNS with *.home.vm.
+systemctl enable coredns && systemctl start coredns

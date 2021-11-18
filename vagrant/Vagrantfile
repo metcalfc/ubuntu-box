@@ -6,7 +6,8 @@ Vagrant.configure("2") do |config|
   config.vm.box = "ubuntu-20.04"
   config.vm.box_url = "https://storage.googleapis.com/gitpod-vagrant-boxes/ubuntu-20.04.2021-11-14-1927.box"
 
-  config.vm.network "public_network"
+  # Reuse mac so the my local network reassigns the same IP
+  config.vm.network "public_network", :mac=> "080027123456"
   config.vm.hostname  = "gitpod.vm"
 
   config.vm.provision "shell", path: "setup.sh"
