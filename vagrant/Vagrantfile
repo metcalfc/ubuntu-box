@@ -1,10 +1,26 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 
+vagrant_root = File.dirname(__FILE__)
+
+# This is useful for my home setup with Mac laptops and Windows desktops
+vm_memory = 13000
+vm_cores  = 2
+if Vagrant::Util::Platform.windows? then
+  vm_memory = 32000
+  vm_cores  = 4
+end
+
 Vagrant.configure("2") do |config|
 
   config.vm.box = "ubuntu-20.04"
   config.vm.box_url = "https://storage.googleapis.com/gitpod-vagrant-boxes/ubuntu-20.04.2021-11-14-1927.box"
+  config.vm.provider :vmware_desktop
+#
+  config.vm.provider "vmware_desktop" do |v|
+    v.vmx["memsize"] = vm_memory
+    v.vmx["numvcpus"] = vm_cores
+  end
 
   # Reuse mac so the my local network reassigns the same IP
   config.vm.network "public_network", :mac=> "080027123456"
